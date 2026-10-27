@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="ДомашкоБот — ИИ-помощник, который решает домашнее задание по фото или по тексту запроса." />
+<title>ДомашкоБот — решай домашку с помощью ИИ</title>
+<style>
+:root{
+  --bg-0:#070a12;
+  --bg-1:#0b1020;
+  --panel:rgba(18,24,46,0.72);
+  --panel-solid:#121830;
+  --line:rgba(126,148,255,0.16);
+  --text:#e8ecff;
+  --muted:#9aa6c8;
+  --accent:#6c7bff;
+  --accent-2:#22d3ee;
+  --accent-glow:rgba(108,123,255,0.35);
+  --danger:#ff5d7a;
+  --ok:#34d399;
+  --radius:18px;
+}
+[data-theme="light"]{
+  --bg-0:#eef1fb;
+  --bg-1:#e2e8f8;
+  --panel:rgba(255,255,255,0.8);
+  --panel-solid:#ffffff;
+  --line:rgba(76,92,160,0.18);
+  --text:#141a33;
+  --muted:#5a648c;
+  --accent:#4c5cff;
+  --accent-2:#0891b2;
+  --accent-glow:rgba(76,92,255,0.25);
+  --danger:#e0365c;
+  --ok:#059669;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  background:var(--bg-0);
+  color:var(--text);
+  min-height:100vh;
+  transition:background .5s ease,color .4s ease;
+  overflow-x:hidden;
+}
+a{color:var(--accent-2)}
+
+/* анимированный фон-нейросеть */
+#nn-bg{
+  position:fixed;inset:0;z-index:-2;
+  background:radial-gradient(1200px 700px at 15% -10%,var(--accent-glow),transparent 60%),
+             radial-gradient(1000px 700px at 100% 110%,rgba(34,211,238,.18),transparent 55%);
+}
+#nn-canvas{position:fixed;inset:0;z-index:-1;width:100%;height:100%}
+
+.wrap{max-width:800px;margin:0 auto;padding:24px 18px 80px}
+
+/* шапка */
+header.top{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:12px 0;margin-bottom:26px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:20px}
+.logo{
+  width:42px;height:42px;border-radius:12px;flex:none;
+  background:conic-gradient(from 210deg,var(--accent),var(--accent-2),var(--accent));
+  display:grid;place-items:center;font-size:22px;color:#fff;
+  box-shadow:0 6px 22px var(--accent-glow);
+  animation:float 4s ease-in-out infinite;
+}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+header.top .right{display:flex;align-items:center;gap:10px}
+
+/* переключатель темы */
+.switch{
+  position:relative;width:58px;height:32px;background:var(--panel-solid);
+  border:1px solid var(--line);border-radius:999px;cursor:pointer;
+  appearance:none;-webkit-appearance:none;transition:background .3s;
+}
+.switch::before{
+  content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  transition:transform .35s cubic-bezier(.6,1.4,.5,1);
+}
+.switch[data-dark="false"]::before{transform:translateX(26px)}
+.switch span{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:13px;pointer-events:none;
+}
+.switch .sun{color:#ffd76a}
+.switch .moon{color:#cfe0ff;opacity:.9}
+.switch[data-dark="false"] .sun{order:2}
+.switch{text-indent:-9999px}
+.switch .sun,.switch .moon{text-indent:0}
+.switch[data-dark="false"] .sun{transform:translateX(14px)}
+.switch[data-dark="false"] .moon{transform:translateX(-14px)}
+
+/* герой */
+.hero{text-align:center;margin:26px 0 30px}
+.hero .kicker{
+  display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+  border:1px solid var(--line);padding:6px 12px;border-radius:999px;margin-bottom:16px;
+  background:var(--panel);
+}
+.hero .kicker .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.hero h1{font-size:clamp(30px,6vw,46px);line-height:1.08;margin:0 0 12px}
+.hero h1 .grad{
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero p{color:var(--muted);max-width:560px;margin:0 auto;font-size:16px;line-height:1.6}
+
+/* карточка ввода */
+.composer{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:10px;backdrop-filter:blur(10px);
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+.search-row{display:flex;align-items:flex-end;gap:8px}
+.search-icons{font-size:20px;padding:10px;opacity:.8;line-height:1}
+#query{
+  flex:1;min-width:0;background:transparent;border:none;outline:none;color:var(--text);
+  font-size:16px;padding:12px 4px;font-family:inherit;resize:none;
+}
+#query::placeholder{color:var(--muted)}
+textarea#query{min-height:52px}
+.btn{
+  border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:15px;
+  border-radius:12px;padding:12px 18px;color:#fff;transition:transform .12s,box-shadow .2s,filter .2s;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  box-shadow:0 8px 24px var(--accent-glow);white-space:nowrap;
+}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.06)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.55;cursor:not-allowed;transform:none}
+.btn.icon{padding:12px 14px}
+.upload-btn{
+  background:var(--panel-solid);border:1px solid var(--line);color:var(--text);
+  box-shadow:none;
+}
+#file-input{display:none}
+.chips{display:flex;gap:8px;flex-wrap:wrap;padding:8px 6px 2px}
+.chip{
+  border:1px solid var(--line);background:var(--panel-solid);color:var(--muted);
+  border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer;transition:.15s;
+  font-family:inherit;
+}
+.chip:hover{color:var(--text);border-color:var(--accent)}
+.attach-note{
+  display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;
+  padding:8px 6px 0;
+}
+.attach-note time{font-variant-numeric:tabular-nums}
+
+/* предпросмотр изображения */
+.preview{
+  display:flex;gap:12px;align-items:flex-start;margin-top:10px;padding:6px;
+  border-top:1px dashed var(--line);
+}
+.preview img{max-height:180px;border-radius:12px;border:1px solid var(--line)}
+.preview .preview-meta{font-size:13px;color:var(--muted);line-height:1.5}
+.preview .clear-btn{
+  background:none;border:1px solid var(--line);color:var(--danger);border-radius:8px;
+  padding:6px 10px;cursor:pointer;font-family:inherit;font-size:13px;
+}
+
+/* статус распознавания */
+.status{margin:14px 0 0;font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:center}
+.status .meter{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden;max-width:260px}
+.status .bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .2s}
+
+/* ответ */
+.answer{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px;margin-top:20px;backdrop-filter:blur(10px);display:none;
+  animation:rise .4s ease;
+}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.answer .answer-head{display:flex;gap:10px;align-items:center;font-weight:700;margin-bottom:12px}
+.answer .answer-head .ai{
+  width:28px;height:28px;border-radius:8px;background:conic-gradient(from 210deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;color:#fff;font-size:15px;flex:none;
+}
+.answer .answer-meta{font-size:12px;color:var(--muted);font-weight:400}
+.answer .result{font-size:15px;line-height:1.75;white-space:pre-wrap;margin-bottom:16px}
+.answer .result b{color:var(--accent-2)}
+.answer .tags{display:flex;gap:8px;flex-wrap:wrap;padding-top:12px;border-top:1px dashed var(--line);font-size:12px;color:var(--muted)}
+.answer .tags span{border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+
+/* секции инфо */
+.sections{margin-top:44px}
+.sections h2{font-size:20px;margin:34px 0 14px}
+.sections h2 small{color:var(--muted);font-weight:400;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;
+  transition:transform .15s,border-color .2s;
+}
+.card:hover{transform:translateY(-3px);border-color:var(--accent)}
+.card .ico{font-size:22px;margin-bottom:8px}
+.card h3{margin:0 0 6px;font-size:15px}
+.card p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.55}
+.steps{display:flex;flex-direction:column;gap:14px;padding-left:4px}
+.step{display:flex;gap:14px;align-items:flex-start}
+.step .n{
+  flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:14px;
+}
+.step p{margin:2px 0 0;color:var(--muted);font-size:14.5px;line-height:1.55}
+.step b{color:var(--text)}
+
+footer{margin-top:56px;color:var(--muted);font-size:13px;text-align:center;line-height:1.6}
+footer .sep{opacity:.5}
+
+/* уведомления */
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+  background:var(--panel-solid);border:1px solid var(--line);color:var(--text);
+  padding:12px 18px;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.35);
+  font-size:14px;opacity:0;transition:.3s;z-index:50;max-width:86vw;text-align:center;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{border-color:var(--danger)}
+.toast.ok{border-color:var(--ok)}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.001s !important;transition-duration:.001s !important}
+}
+@media(max-width:520px){
+  .search-row{flex-wrap:wrap}
+  #query{width:100%}
+  .btn{flex:1}
+  .preview{flex-direction:column}
+}
+</style>
+</head>
+<body>
+<div id="nn-bg"></div>
+<canvas id="nn-canvas" aria-hidden="true"></canvas>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">&#9889;</div>
+      <span>ДомашкоБот</span>
+    </div>
+    <div class="right">
+      <button id="theme-switch" class="switch" data-dark="true" role="switch" aria-checked="true" aria-label="Переключить тёмную тему">
+        <span class="moon">&#9789;</span><span class="sun">&#9728;</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <span class="kicker"><span class="dot"></span> онлайн · без установки · с посекундным решением</span>
+    <h1>Решай домашнее задание <span class="grad">по фото или по тексту</span></h1>
+    <p>Сфотографируй задачу с тетради или введи вопрос — нейросеть распознает условие, разберёт его по шагам и объяснит так, чтобы ты понял.</p>
+  </section>
+
+  <section class="composer" aria-label="Форма вопроса">
+    <form id="ask-form">
+      <div class="search-row">
+        <span class="search-icons">&#128269;</span>
+        <textarea id="query" rows="1" placeholder="Введи задачу, пример или вопрос… например: решить уравнение x² − 5x + 6 = 0" autocomplete="off" aria-label="Текст задачи"></textarea>
+        <button type="button" id="upload-btn" class="btn icon upload-btn" title="Прикрепить фото задачи">&#128247;</button>
+        <button type="submit" id="ask-btn" class="btn">Решить</button>
+      </div>
+      <input type="file" id="file-input" accept="image/*" aria-label="Выбрать фото задачи" />
+      <div class="chips" id="chips"></div>
+      <div class="attach-note">
+        <span>&#128206;</span>
+        <span>Нейросеть распознаёт текст на картинках и ищет решение в базе знаний.</span>
+      </div>
+      <div class="preview" id="preview" hidden>
+        <img id="preview-img" alt="Предпросмотр загруженного фото" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" />
+        <div class="preview-meta">
+          <div id="preview-name"></div>
+          <div id="ocr-note">Готов распознать текст: нажми «Решить».</div>
+          <button type="button" id="clear-img" class="clear-btn">Убрать фото</button>
+        </div>
+      </div>
+      <div class="status" id="status" hidden>
+        <span id="status-text">Распознаю…</span>
+        <span class="meter"><span class="bar" id="status-bar"></span></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="answer" id="answer" aria-live="polite">
+    <div class="answer-head">
+      <span class="ai">&#129302;</span>
+      <span>Решение по шагам</span>
+      <span class="answer-meta" id="answer-meta"></span>
+    </div>
+    <div class="result" id="result"></div>
+    <div class="tags" id="result-tags"></div>
+  </section>
+
+  <section class="sections">
+    <h2>Что умеет ДомашкоБот <small>— предметы и типы задач</small></h2>
+    <div class="grid" id="topics-grid"></div>
+
+    <h2>Как это работает <small>— три шага до решения</small></h2>
+    <div class="steps">
+      <div class="step"><span class="n">1</span><p><b>Сфотографируй или введи.</b> Прикрепи фото из тетради или набери задачу в поисковой строке.</p></div>
+      <div class="step"><span class="n">2</span><p><b>Нейросеть распознаёт условие.</b> OCR превращает картинку в текст, а модель разбирает запрос на суть.</p></div>
+      <div class="step"><span class="n">3</span><p><b>Получаешь решение с объяснением.</b> Пошаговый разбор, а не просто ответ — так ты разберёшься сам.</p></div>
+    </div>
+
+    <h2>Важно знать <small>— честно про результат</small></h2>
+    <div class="steps">
+      <div class="step"><span class="n">&#10003;</span><p>Демо использует локальную базу примеров (математика, физика, история). Для <b>живого ответа на твой вопрос</b> готовый результат возвращается по шагам из шаблонов.</p></div>
+      <div class="step"><span class="n">&bull;</span><p>Итог стоит проверять: лучше понять задачу самому, чем списать. Используй решение как подсказку и объяснение.</p></div>
+      <div class="step"><span class="n">&#9889;</span><p>Фото обрабатывается прямо в браузере: ничего никуда не отправляется.</p></div>
+    </div>
+  </section>
+
+  <footer>
+    ДомашкоБот · демо-приложение ИИ для школьных задач<br>
+    <span class="sep">ИИ-ассистент</span> · <span class="sep">работает в браузере</span> · <span class="sep">2026</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ===================== анимированный фон-нейросеть ===================== */
+(function(){
+  var cv=document.getElementById("nn-canvas"), ctx=cv.getContext("2d");
+  var W,H,dpr=Math.min(window.devicePixelRatio||1,2);
+  var NODES=42, nodes=[], links=[];
+  function size(){
+    W=cv.offsetWidth;H=cv.offsetHeight;
+    cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  var accent=getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  var accent2=getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim();
+  function hexToRgb(h){h=h.replace("#","");if(h.length===3)h=h.split("").map(function(c){return c+c}).join("");var n=parseInt(h,16);return (n>>16)+","+((n>>8)&255)+","+(n&255);}
+  var cA=hexToRgb(accent||"#6c7bff"), cA2=hexToRgb(accent2||"#22d3ee");
+  var colorDark = document.documentElement.getAttribute("data-theme")!=="light";
+  function init(){
+    size();nodes=[];links=[];
+    for(var i=0;i<NODES;i++){
+      nodes.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:Math.random()*2.2+1.2});
+    }
+    links=[];
+    for(var j=0;j<NODES;j++)for(var k=j+1;k<NODES;k++)if(Math.random()<.07)links.push([j,k]);
+  }
+  var reduced=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var raf=null, t=0;
+  function frame(){
+    t+=0.004;
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<links.length;i++){
+      var a=nodes[links[i][0]], b=nodes[links[i][1]];
+      var dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
+      if(d<230){
+        var alpha=(1-d/230)*.5;
+        ctx.strokeStyle="rgba("+cA+","+alpha+")";
+        ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      }
+    }
+    for(var n=0;n<nodes.length;n++){
+      var nd=nodes[n];
+      nd.x+=nd.vx+Math.sin(t*5+n)*.08;
+      nd.y+=nd.vy+Math.cos(t*5+n*1.3)*.08;
+      if(nd.x<0||nd.x>W)nd.vx*=-1;
+      if(nd.y<0||nd.y>H)nd.vy*=-1;
+      var pulse=.15+Math.sin(t*4+n)*.15;
+      var grd=ctx.createRadialGradient(nd.x,nd.y,0,nd.x,nd.y,nd.r*5);
+      grd.addColorStop(0,"rgba("+cA2+","+(.35+pulse)+")");
+      grd.addColorStop(1,"rgba("+cA2+",0)");
+      ctx.fillStyle=grd;
+      ctx.beginPath();ctx.arc(nd.x,nd.y,nd.r*5,0,Math.PI*2);ctx.fill();
+    }
+    if(!reduced)raf=requestAnimationFrame(frame);
+  }
+  init();frame();
+  window.addEventListener("resize",function(){init();if(!reduced&&!raf)raf=requestAnimationFrame(frame);});
+  document.addEventListener("themechange",function(){
+    var accentNew=getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    var accent2New=getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim();
+    cA=hexToRgb(accentNew);cA2=hexToRgb(accent2New||"#22d3ee");
+  });
+})();
+
+/* ===================== элементы ===================== */
+var $=function(id){return document.getElementById(id);};
+var form=$("ask-form"), query=$("query"), askBtn=$("ask-btn"),
+    fileInput=$("file-input"), uploadBtn=$("upload-btn"),
+    preview=$("preview"), previewImg=$("preview-img"), previewName=$("preview-name"),
+    clearImg=$("clear-img"), status=$("status"), statusText=$("status-text"), statusBar=$("status-bar"),
+    answer=$("answer"), resultEl=$("result"), answerMeta=$("answer-meta"), resultTags=$("result-tags"),
+    themeSwitch=$("theme-switch"), toast=$("toast"), chips=$("chips");
+
+/* авто-рост textarea */
+query.addEventListener("input",function(){
+  this.style.height="auto";this.style.height=this.style.minHeight;
+  if(this.scrollHeight>52) this.style.height=this.scrollHeight+"px";
+});
+
+/* ===================== тема ===================== */
+var DARK_KEY="homeworkai-theme";
+function setTheme(dark){
+  document.documentElement.setAttribute("data-theme",dark?"dark":"light");
+  themeSwitch.setAttribute("data-dark",dark?"true":"false");
+  themeSwitch.setAttribute("aria-checked",dark?"true":"false");
+  try{localStorage.setItem(DARK_KEY,dark?"dark":"light");}catch(e){}
+  document.dispatchEvent(new CustomEvent("themechange"));
+}
+themeSwitch.addEventListener("click",function(){
+  setTheme(document.documentElement.getAttribute("data-theme")!=="dark");
+});
+try{var saved=localStorage.getItem(DARK_KEY);if(saved)setTheme(saved!=="light");}catch(e){}
+
+/* ===================== уведомления ===================== */
+var toastTimer;
+function notify(msg,kind){
+  toast.textContent=msg;
+  toast.className="toast show"+(kind?" "+kind:"");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){toast.className="toast";},3400);
+}
+
+/* ===================== чипы-примеры ===================== */
+var examples=[
+  "x² − 5x + 6 = 0",
+  "Сколько будет 136 : 4?",
+  "Скорость света?",
+  "Когда началась Вторая мировая?"
+];
+chips.innerHTML="";
+examples.forEach(function(ex){
+  var b=document.createElement("button");b.type="button";b.className="chip";b.textContent=ex;
+  b.addEventListener("click",function(){query.value=ex;query.dispatchEvent(new Event("input"));query.focus();});
+  chips.appendChild(b);
+});
+
+/* ===================== загрузка фото ===================== */
+var attached=null; // {file,name}
+uploadBtn.addEventListener("click",function(){fileInput.click();});
+fileInput.addEventListener("change",function(){
+  var f=fileInput.files && fileInput.files[0];
+  if(!f)return;
+  attached={file:f,name:f.name};
+  previewImg.src=URL.createObjectURL(f);
+  previewName.textContent=f.name+" · "+(f.size>1048576?(f.size/1048576).toFixed(1)+" МБ":Math.ceil(f.size/1024)+" КБ");
+  $("ocr-note").textContent="Готов распознать текст: нажми «Решить».";
+  preview.hidden=false;
+});
+clearImg.addEventListener("click",function(){
+  attached=null;fileInput.value="";preview.hidden=true;
+  if(previewImg.src)URL.revokeObjectURL(previewImg.src);
+});
+
+/* ===================== мини-OCR через Tesseract.js ===================== */
+var Tesseract=window.Tesseract;
+var ocrText="";
+function runOCR(img,onDone,onProgress){
+  if(!img||!imageData)return;
+  if(Tesseract){
+    status.hidden=false;statusText.textContent="Распознаю текст с фото… 0%";
+    statusBar.style.width="0%";askBtn.disabled=true;
+    Tesseract.recognize(img,"rus",{logger:function(m){
+      if(m.status==="recognizing text"){var p=Math.round((m.progress||0)*100);statusBar.style.width=p+"%";statusText.textContent="Распознаю текст с фото… "+p+"%";}
+    }}).then(function(r){
+      ocrText=(r.data.text||"").replace(/\n{3,}/g,"\n\n").trim();
+      statusBar.style.width="100%";
+      statusText.textContent=ocrText?"Готово: распознано символов — "+ocrText.length:"Текст на фото не найден";
+      askBtn.disabled=false;
+      setTimeout(function(){status.hidden=true;},2000);
+      onDone&&onDone(ocrText);
+    }).catch(function(err){
+      askBtn.disabled=false;status.hidden=true;
+      notify("Не удалось распознать фото. Отправь голым текстом.","err");
+      onDone&&onDone("");
+    });
+  } else {
+    notify("Сервис распознавания недоступен. Отправь задачу текстом.","err");
+    onDone&&onDone("");
+  }
+}
+var imageData=null;
+function canvasFromFile(file){
+  return new Promise(function(resolve){
+    var img=new Image();
+    var url=URL.createObjectURL(file);
+    img.onload=function(){
+      var cv=document.createElement("canvas");
+      var max=1200,scale=Math.min(1,max/Math.max(img.width,img.height));
+      cv.width=Math.round(img.width*scale);cv.height=Math.round(img.height*scale);
+      cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+      URL.revokeObjectURL(url);
+      imageData=cv;resolve(cv);
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);resolve(null);};
+    img.src=url;
+  });
+}
+
+/* ===================== локальная база решений ===================== */
+function norm(s){return (s||"").toLowerCase().replace(/[^a-zа-яё0-9]/gi,"");}
+function normRx(s){return (s||"").toLowerCase().replace(/[^a-zа-яё0-9]/gi,"").replace(/[ıії]/g,"и");}
+function solve(input){
+  var full=input+"\n"+ocrText;
+  var t=normRx(full), tn=norm(full);
+  var m;
+  /* квадратное уравнение */
+  if((m=t.match(/(-?\d*\.?\d*)\s*x\s*[²^]2(?:\s*([+-])\s*(\d*\.?\d*)\s*x)?(?:\s*([-+])\s*(\d*\.?\d*))?\s*=\s*0/))&&tn.indexOf("x2")>-1){
+    var a=parseFloat(m[1]||"1")||1;
+    var s2=m[2]||"+",b=((s2==="-"?-1:1)*parseFloat(m[3]||"1"))||0;
+    s2=m[2]||"+";
+    b=(s2==="-"?-1:1)*(parseFloat(m[3]||"1")||0);
+    var c=(m[4]==="-"||m[4]==="+")?(m[4]==="-"?-1:1)*(parseFloat(m[5]||"0")||0):0;
+    var D=b*b-4*a*c;
+    return {
+      text:"Уравнение: **"+a+"x² "+(b<0?"− "+(-b):"+ "+b)+"x "+(c<0?"− "+(-c):"+ "+c)+" = 0**\n\n"+
+        "Шаг 1 — коэффициенты: a = "+a+", b = "+b+", c = "+c+".\n"+
+        "Шаг 2 — дискриминант: D = b² − 4ac = "+b+"² − 4·"+a+"·"+c+" = "+D+"."+
+        (D>0? "\nШаг 3 — два корня: x₁ = (−b + √D)/(2a) = "+formatNum((-b+Math.sqrt(D))/(2*a))+
+                ", x₂ = (−b − √D)/(2a) = "+formatNum((-b-Math.sqrt(D))/(2*a))+"."+
+                "\n\n✅ **Ответ: x₁ = "+formatNum((-b+Math.sqrt(D))/(2*a))+" ; x₂ = "+formatNum((-b-Math.sqrt(D))/(2*a))+"**"
+            : D===0? "\nШаг 3 — один корень: x = −b/(2a) = "+formatNum(-b/(2*a))+
+                "\n\n✅ **Ответ: x = "+formatNum(-b/(2*a))+"**"
+            : "\nШаг 3 — D < 0, поэтому у уравнения нет действительных корней.\n\n✅ **Ответ: действительных корней нет**."),
+      tags:["Математика","Алгебра","Квадратное уравнение","Задача ▲"]
+    };
+  }
+  /* простое наличие x² + b, ловим через нефакторизованное начало */
+  /* линейное: ax + b = c */
+  if((m=t.match(/(-?\d*\.?\d*)\s*x\s*([+-])\s*(\d*\.?\d*)\s*=\s*(-?\d*\.?\d*)/))&&t.indexOf("x2")<0){
+    var ca=parseFloat(m[1]||"1")||1;
+    var signb=m[2]==="-"?-1:1;
+    var cb=(parseFloat(m[3]||"0")||0)*signb;
+    var cc=parseFloat(m[4]||"0")||0;
+    var x=(cc-cb)/ca;
+    return {
+      text:"Уравнение: **"+ca+"x "+(cb<0?"− "+(-cb):"+ "+cb)+" = "+cc+"**\n\n"+
+        "Шаг 1 — перенесём "+cb+" вправо: "+ca+"x = "+cc+" − ("+cb+") = "+(cc-cb)+".\n"+
+        "Шаг 2 — разделим на "+ca+": x = "+(cc-cb)+" : "+ca+" = "+parseFloat(x.toFixed(6))+".\n\n"+
+        "✅ **Ответ: x = "+parseFloat(x.toFixed(6))+"**",
+      tags:["Математика","Линейное уравнение","Задача ▲"]
+    };
+  }
+  /* деление */
+  if((m=t.match(/(\d+)\s*[:\/]\s*(\d+)/))&&tn.indexOf("сколько")>-1){
+    var a=m[1],b=m[2];
+    return {
+      text:"**Вычислим "+a+" : "+b+"**\n\n"+
+        "Таблица деления: "+a+" = "+b+" · "+Math.floor(a/b)+" + "+(a%b)+".\n"+
+        "Значит "+a+" : "+b+" = "+Math.floor(a/b)+(a%b?(", остаток "+a%b):"")+".\n\n"+
+        "✅ **Ответ: "+Math.floor(a/b)+(a%b?(", остаток "+a%b):"")+"**",
+      tags:["Математика","Деление","Задача ▲"]
+    };
+  }
+  /* физика скорость света */
+  if(tn.indexOf("скорость")>-1&&tn.indexOf("свет")>-1){
+    return {
+      text:"Скорость света в вакууме — фундаментальная константа физики.\n\n"+
+        "c = **299 792 458 м/с** (точно определена в СИ).\n\n"+
+        "В приближении для учёбы часто используют **c ≈ 3·10⁸ м/с** (300 000 км/с).\n"+
+        "Эту величину впервые измерил Оле Рёмер в 1676 году по затмениям спутника Юпитера.",
+      tags:["Физика","Константа","Справочник"]
+    };
+  }
+  /* история ВОВ */
+  if(tn.indexOf("втора")>-1&&tn.indexOf("миро")>-1&&tn.indexOf("войн")>-1){
+    return {
+      text:"Вторая мировая война (1939–1945).\n\n"+
+        "• **Начало:** 1 сентября 1939 г. — нападение Германии на Польшу.\n"+
+        "• Для СССР война началась **22 июня 1941 г.** (Великая Отечественная).\n"+
+        "• **Окончание:** 2 сентября 1945 г. — капитуляция Японии.\n"+
+        "• В войну было вовлечено более 60 государств, погибло около 60–70 млн человек.\n\n"+
+        "💡 Запомни дату начала: первый день осени 1939 года.",
+      tags:["История","Вторая мировая","Датировка"]
+    };
+  }
+  /* соответствие словам */
+  if(tn.indexOf("кинетическ")>-1){ return {text:"**Кинетическая энергия** — это энергия движения тела. Вычисляется по формуле:\n\nE<sub>k</sub> = mv² / 2\n\nгде m — масса, v — скорость.\n\nПример: тело массой 2 кг со скоростью 3 м/с имеет E<sub>k</sub> = 2·9/2 = **9 Дж**.",tags:["Физика","Энергия","Задача ▲"]}; }
+  if(tn.indexOf("сумма")>-1 && tn.indexOf("угл")>-1){ return {text:"**Сумма углов любого треугольника** равна 180°.\n\nДля многоугольников: S = (n − 2) · 180°, где n — число сторон.\n\nПример: у пятиугольника (n=5) сумма углов = (5−2)·180° = **540°**.",tags:["Геометрия","Правило","Задача ▲"]}; }
+
+  /* Python-подобные вещи списком */
+  if(tn.indexOf("периметр")>-1&&/квадрат|прямоуг/.test(tn)){
+    var side=(tn.match(/(\d+)/)||[])[1];
+    return { text: side ? "Периметр квадрата со стороной "+side+" :\n\nP = 4a = 4 · "+side+" = **"+side*4+"**\n\nПлощадь S = a² = "+side+"² = **"+side*side+"**." : "Периметр квадрата: P = 4a. Прямоугольника: P = 2(a + b).", tags:["Геометрия","Периметр","Задача ▲"] };
+  }
+
+  /* дискриминант в одиночку */
+  if(tn.indexOf("дискриминант")>-1){
+    return { text:"**Дискриминант** квадратного уравнения ax² + bx + c = 0:\n\nD = b² − 4ac\n\n• D > 0 — два корня\n• D = 0 — один корень\n• D < 0 — нет действительных корней\n\nКорни: x = (−b ± √D) / 2a.", tags:["Математика","Дискриминант","Справочник"] };
+  }
+
+  /* универсальный реакт с пояснением, что это шаблон */
+  var sample=Math.floor(Math.random()*3);
+  var steps=[
+    "Я разбил задачу на шаги: выделить условие → выбрать подход → вычислить → проверить.",
+    "Похожие задачи обычно решаются по алгоритму: составить уравнение, решить, проверить ответ подстановкой.",
+    "Совет: выпиши все данные из условия отдельно — это почти всегда подсказывает путь к решению."
+  ];
+  return {
+    text:"Вот как я подошёл бы к этой задаче:\n\n• **Условие:** «"+input.trim().slice(0,120)+(input.trim().length>120?"…":"")+"»"+
+      (ocrText?"\n• **Распознано с фото:** «"+ocrText.slice(0,140)+(ocrText.length>140?"…":"")+"»":"")+"\n\n"+
+      "• "+steps[0]+"\n"+
+      "• "+steps[1]+"\n"+
+      "• "+steps[2]+"\n\n"+
+      "> В демо-режиме я даю примерный план решения. Чтобы получить точный ответ, уточни формулировку или конкретные числа — я пересчитаю по шагам.",
+    tags:["Ответ по запросу","План решения","Демо"]
+  };
+}
+function formatNum(n){
+  var r=Math.round(n*1e6)/1e6;
+  var s=String(r);
+  if(s.indexOf(".")>-1)s=s.replace(/\.?0+$/,"");
+  return s;
+}
+
+/* ===================== отправка ===================== */
+function bold2html(str){return str.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");}
+form.addEventListener("submit",function(ev){
+  ev.preventDefault();
+  var text=query.value.trim();
+  if(!text&&!attached){notify("Сначала введи задачу или прикрепи фото.","err");query.focus();return;}
+
+  askBtn.disabled=true;
+  answer.style.display="none";
+
+  function answerOn(ocr){
+    ocrText=ocr||"";
+    var res=solve(text);
+    resultEl.innerHTML=bold2html(res.text);
+    resultTags.innerHTML="";
+    res.tags.forEach(function(tg){var s=document.createElement("span");s.textContent=tg;resultTags.appendChild(s);});
+    answerMeta.textContent=new Date().toLocaleTimeString("ru-RU")+" · "+(attached?"по фото":"по тексту");
+    answer.style.display="block";
+    askBtn.disabled=false;
+    answer.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+
+  if(attached){
+    canvasFromFile(attached.file).then(function(cv){runOCR(cv||attached.file,answerOn);});
+  } else {
+    answerOn("");
+  }
+});
+
+/* enter = Shift+Enter newline */
+query.addEventListener("keydown",function(e){
+  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();form.dispatchEvent(new Event("submit"));}
+});
+
+/* кликабельные карточки предметов */
+var topics=[
+  {ico:"&#10148;",t:"Математика",d:"Уравнения, дроби, проценты, геометрия — с пошаговым решением."},
+  {ico:"&#128300;",t:"Физика",d:"Задачи на движение, формулы и константы с пояснением."},
+  {ico:"&#128218;",t:"История",d:"Датировки, события и причины — кратко и по делу."},
+  {ico:"&#128300;&#128214;",t:"Химия & Биология",d:"Термины, реакции и определения школьной программы."}
+];
+var grid=$("topics-grid");
+topics.forEach(function(t){grid.insertAdjacentHTML("beforeend",'<div class="card"><div class="ico">'+t.ico+'</div><h3>'+t.t+"</h3><p>"+t.d+"</p></div>");});
+</script>
+</body>
+</html>
