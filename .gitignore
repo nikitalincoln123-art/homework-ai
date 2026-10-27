@@ -1,3 +1,4 @@
 # Артефакты проверки skill
 homework-ai-verify/
-homework-ai-actions.json
+index-verify/
+*.actions.json
